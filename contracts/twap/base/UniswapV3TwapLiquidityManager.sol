@@ -16,10 +16,7 @@ import "../../interfaces/IOneInch.sol";
 import "@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3MintCallback.sol";
 import "@openzeppelin/contracts/token/ERC20/SafeERC20.sol";
 
-contract UniswapV3TwapLiquidityManager is
-    TwapStrategyBase,
-    IUniswapV3MintCallback
-{
+contract UniswapV3TwapLiquidityManager is TwapStrategyBase, IUniswapV3MintCallback {
     using SafeMath for uint256;
     using SafeCast for uint256;
     using SafeERC20 for IERC20;
@@ -56,21 +53,9 @@ contract UniswapV3TwapLiquidityManager is
         uint256 _amount1,
         address _payer
     ) internal returns (uint256 amount0, uint256 amount1) {
-        uint128 liquidity = LiquidityHelper.getLiquidityForAmounts(
-            pool,
-            _tickLower,
-            _tickUpper,
-            _amount0,
-            _amount1
-        );
+        uint128 liquidity = LiquidityHelper.getLiquidityForAmounts(pool, _tickLower, _tickUpper, _amount0, _amount1);
         // add liquidity to Uniswap pool
-        (amount0, amount1) = pool.mint(
-            address(this),
-            _tickLower,
-            _tickUpper,
-            liquidity,
-            abi.encode(MintCallbackData({payer: _payer, pool: pool}))
-        );
+        (amount0, amount1) = pool.mint(address(this), _tickLower, _tickUpper, liquidity, abi.encode(MintCallbackData({payer: _payer, pool: pool})));
     }
 
     /**
@@ -97,44 +82,20 @@ contract UniswapV3TwapLiquidityManager is
         uint256 collect1;
 
         if (_shares > 0) {
-            (_currentLiquidity, , , , ) = pool.positions(
-                PositionKey.compute(address(this), _tickLower, _tickUpper)
-            );
+            (_currentLiquidity, , , , ) = pool.positions(PositionKey.compute(address(this), _tickLower, _tickUpper));
             if (_currentLiquidity > 0) {
-                uint256 liquidity = FullMath.mulDiv(
-                    _currentLiquidity,
-                    _shares,
-                    totalSupply()
-                );
+                uint256 liquidity = FullMath.mulDiv(_currentLiquidity, _shares, totalSupply());
 
-                (tokensBurned0, tokensBurned1) = pool.burn(
-                    _tickLower,
-                    _tickUpper,
-                    liquidity.toUint128()
-                );
+                (tokensBurned0, tokensBurned1) = pool.burn(_tickLower, _tickUpper, liquidity.toUint128());
             }
         } else {
-            (tokensBurned0, tokensBurned1) = pool.burn(
-                _tickLower,
-                _tickUpper,
-                _currentLiquidity
-            );
+            (tokensBurned0, tokensBurned1) = pool.burn(_tickLower, _tickUpper, _currentLiquidity);
         }
         // collect fees
-        (collect0, collect1) = pool.collect(
-            address(this),
-            _tickLower,
-            _tickUpper,
-            type(uint128).max,
-            type(uint128).max
-        );
+        (collect0, collect1) = pool.collect(address(this), _tickLower, _tickUpper, type(uint128).max, type(uint128).max);
 
-        fee0 = collect0 > tokensBurned0
-            ? uint256(collect0).sub(tokensBurned0)
-            : 0;
-        fee1 = collect1 > tokensBurned1
-            ? uint256(collect1).sub(tokensBurned1)
-            : 0;
+        fee0 = collect0 > tokensBurned0 ? uint256(collect0).sub(tokensBurned0) : 0;
+        fee1 = collect1 > tokensBurned1 ? uint256(collect1).sub(tokensBurned1) : 0;
 
         // transfer performance fees
         _transferPerformanceFees(fee0, fee1);
@@ -153,43 +114,22 @@ contract UniswapV3TwapLiquidityManager is
             uint256 managerToken1Amount,
             uint256 protocolToken0Amount,
             uint256 protocolToken1Amount
-        ) = TwapShareHelper.calculateFeeTokenShares(
-                factory,
-                manager,
-                _fee0,
-                _fee1
-            );
+        ) = TwapShareHelper.calculateFeeTokenShares(factory, manager, _fee0, _fee1);
 
         if (managerToken0Amount > 0) {
-            TransferHelper.safeTransfer(
-                address(token0),
-                managerFeeTo,
-                managerToken0Amount
-            );
+            TransferHelper.safeTransfer(address(token0), managerFeeTo, managerToken0Amount);
         }
 
         if (managerToken1Amount > 0) {
-            TransferHelper.safeTransfer(
-                address(token1),
-                managerFeeTo,
-                managerToken1Amount
-            );
+            TransferHelper.safeTransfer(address(token1), managerFeeTo, managerToken1Amount);
         }
 
         if (protocolToken0Amount > 0) {
-            TransferHelper.safeTransfer(
-                address(token0),
-                protocolFeeTo,
-                protocolToken0Amount
-            );
+            TransferHelper.safeTransfer(address(token0), protocolFeeTo, protocolToken0Amount);
         }
 
         if (protocolToken1Amount > 0) {
-            TransferHelper.safeTransfer(
-                address(token1),
-                protocolFeeTo,
-                protocolToken1Amount
-            );
+            TransferHelper.safeTransfer(address(token1), protocolFeeTo, protocolToken1Amount);
         }
 
         emit FeesClaim(address(this), _fee0, _fee1);
@@ -202,21 +142,10 @@ contract UniswapV3TwapLiquidityManager is
         for (uint256 _tickIndex = 0; _tickIndex < ticks.length; _tickIndex++) {
             Tick storage tick = ticks[_tickIndex];
 
-            (uint128 currentLiquidity, , , , ) = pool.positions(
-                PositionKey.compute(
-                    address(this),
-                    tick.tickLower,
-                    tick.tickUpper
-                )
-            );
+            (uint128 currentLiquidity, , , , ) = pool.positions(PositionKey.compute(address(this), tick.tickLower, tick.tickUpper));
 
             if (currentLiquidity > 0) {
-                burnLiquidity(
-                    tick.tickLower,
-                    tick.tickUpper,
-                    0,
-                    currentLiquidity
-                );
+                burnLiquidity(tick.tickLower, tick.tickUpper, 0, currentLiquidity);
             }
         }
     }
@@ -238,17 +167,10 @@ contract UniswapV3TwapLiquidityManager is
 
         Tick storage tick = ticks[_tickIndex];
 
-        (uint128 currentLiquidity, , , , ) = pool.positions(
-            PositionKey.compute(address(this), tick.tickLower, tick.tickUpper)
-        );
+        (uint128 currentLiquidity, , , , ) = pool.positions(PositionKey.compute(address(this), tick.tickLower, tick.tickUpper));
 
         if (currentLiquidity > 0) {
-            (amount0, amount1, fee0, fee1) = burnLiquidity(
-                tick.tickLower,
-                tick.tickUpper,
-                0,
-                currentLiquidity
-            );
+            (amount0, amount1, fee0, fee1) = burnLiquidity(tick.tickLower, tick.tickUpper, 0, currentLiquidity);
         }
 
         // shift the index element at last of array
@@ -264,14 +186,9 @@ contract UniswapV3TwapLiquidityManager is
     function swap(bytes calldata data) public onlyOperator {
         LocalVariables_Balances memory balances;
 
-        (IERC20 srcToken, IERC20 dstToken, uint256 amount) = OneInchHelper
-            .decodeData(IERC20(token0), IERC20(token1), data);
+        (IERC20 srcToken, IERC20 dstToken, uint256 amount) = OneInchHelper.decodeData(IERC20(token0), IERC20(token1), data);
 
-        require(
-            (srcToken == token0 && dstToken == token1) ||
-                (srcToken == token1 && dstToken == token0),
-            "IA"
-        );
+        require((srcToken == token0 && dstToken == token1) || (srcToken == token1 && dstToken == token0), "IA");
 
         balances.tokenInBalBefore = srcToken.balanceOf(address(this));
         balances.tokenOutBalBefore = dstToken.balanceOf(address(this));
@@ -279,9 +196,7 @@ contract UniswapV3TwapLiquidityManager is
         srcToken.safeIncreaseAllowance(address(oneInchRouter), amount);
 
         // Interact with 1inch through contract call with data
-        (bool success, bytes memory returnData) = address(oneInchRouter).call{
-            value: 0
-        }(data);
+        (bool success, bytes memory returnData) = address(oneInchRouter).call{value: 0}(data);
 
         // Verify return status and data
         if (!success) {
@@ -308,12 +223,8 @@ contract UniswapV3TwapLiquidityManager is
         balances.tokenInBalAfter = srcToken.balanceOf(address(this));
         balances.tokenOutBalAfter = dstToken.balanceOf(address(this));
 
-        uint256 amountIn = balances.tokenInBalBefore.sub(
-            balances.tokenInBalAfter
-        );
-        uint256 amountOut = balances.tokenOutBalAfter.sub(
-            balances.tokenOutBalBefore
-        );
+        uint256 amountIn = balances.tokenInBalBefore.sub(balances.tokenInBalAfter);
+        uint256 amountOut = balances.tokenOutBalAfter.sub(balances.tokenOutBalBefore);
 
         // check if swap exceed allowed deviation and revert if maximum swap limits reached
         if (
@@ -332,19 +243,7 @@ contract UniswapV3TwapLiquidityManager is
             manager.increamentSwapCounter();
         }
 
-        require(
-            TwapOracleLibrary.allowSwap(
-                pool,
-                factory,
-                amountIn,
-                amountOut,
-                address(srcToken),
-                address(dstToken),
-                manager,
-                useTwap
-            ),
-            "S"
-        );
+        require(TwapOracleLibrary.allowSwap(pool, factory, amountIn, amountOut, address(srcToken), address(dstToken), manager, useTwap), "S");
     }
 
     /**
@@ -361,36 +260,18 @@ contract UniswapV3TwapLiquidityManager is
         if (decoded.payer == address(this)) {
             // transfer tokens already in the contract
             if (amount0 > 0) {
-                TransferHelper.safeTransfer(
-                    address(token0),
-                    msg.sender,
-                    amount0
-                );
+                TransferHelper.safeTransfer(address(token0), msg.sender, amount0);
             }
             if (amount1 > 0) {
-                TransferHelper.safeTransfer(
-                    address(token1),
-                    msg.sender,
-                    amount1
-                );
+                TransferHelper.safeTransfer(address(token1), msg.sender, amount1);
             }
         } else {
             // take and transfer tokens to Uniswap V3 pool from the user
             if (amount0 > 0) {
-                TransferHelper.safeTransferFrom(
-                    address(token0),
-                    decoded.payer,
-                    msg.sender,
-                    amount0
-                );
+                TransferHelper.safeTransferFrom(address(token0), decoded.payer, msg.sender, amount0);
             }
             if (amount1 > 0) {
-                TransferHelper.safeTransferFrom(
-                    address(token1),
-                    decoded.payer,
-                    msg.sender,
-                    amount1
-                );
+                TransferHelper.safeTransferFrom(address(token1), decoded.payer, msg.sender, amount1);
             }
         }
     }
@@ -413,23 +294,11 @@ contract UniswapV3TwapLiquidityManager is
             Tick memory tick = ticks[i];
 
             // get current liquidity from the pool
-            (uint128 currentLiquidity, , , , ) = pool.positions(
-                PositionKey.compute(
-                    address(this),
-                    tick.tickLower,
-                    tick.tickUpper
-                )
-            );
+            (uint128 currentLiquidity, , , , ) = pool.positions(PositionKey.compute(address(this), tick.tickLower, tick.tickUpper));
 
             if (currentLiquidity > 0) {
                 // calculate current positions in the pool from currentLiquidity
-                (uint256 position0, uint256 position1) = LiquidityHelper
-                    .getAmountsForLiquidity(
-                        pool,
-                        tick.tickLower,
-                        tick.tickUpper,
-                        currentLiquidity
-                    );
+                (uint256 position0, uint256 position1) = LiquidityHelper.getAmountsForLiquidity(pool, tick.tickLower, tick.tickUpper, currentLiquidity);
 
                 amount0 = amount0.add(position0);
                 amount1 = amount1.add(position1);
@@ -441,13 +310,7 @@ contract UniswapV3TwapLiquidityManager is
                 // Uniswap recalculates the fees and updates the variables when amount is passed as 0
                 pool.burn(tick.tickLower, tick.tickUpper, 0);
 
-                (uint256 fee0, uint256 fee1) = pool.collect(
-                    address(this),
-                    tick.tickLower,
-                    tick.tickUpper,
-                    type(uint128).max,
-                    type(uint128).max
-                );
+                (uint256 fee0, uint256 fee1) = pool.collect(address(this), tick.tickLower, tick.tickUpper, type(uint128).max, type(uint128).max);
 
                 totalFee0 = totalFee0.add(fee0);
                 totalFee1 = totalFee1.add(fee1);

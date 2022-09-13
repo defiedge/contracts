@@ -84,31 +84,16 @@ contract DefiEdgeTwapStrategyFactory is ITwapStrategyFactory {
     /**
      * @inheritdoc ITwapStrategyFactory
      */
-    function createStrategy(CreateStrategyParams calldata params)
-        external
-        payable
-        override
-    {
+    function createStrategy(CreateStrategyParams calldata params) external payable override {
         require(msg.value == strategyCreationFee, "INSUFFICIENT_FEES");
 
         IUniswapV3Pool pool = IUniswapV3Pool(params.pool);
 
-        require(
-            IERC20Minimal(pool.token0()).decimals() <= MAX_DECIMAL &&
-                IERC20Minimal(pool.token1()).decimals() <= MAX_DECIMAL,
-            "ID"
-        );
+        require(IERC20Minimal(pool.token0()).decimals() <= MAX_DECIMAL && IERC20Minimal(pool.token1()).decimals() <= MAX_DECIMAL, "ID");
 
-        address poolAddress = uniswapV3Factory.getPool(
-            pool.token0(),
-            pool.token1(),
-            pool.fee()
-        );
+        address poolAddress = uniswapV3Factory.getPool(pool.token0(), pool.token1(), pool.fee());
 
-        require(
-            poolAddress != address(0) && poolAddress == address(pool),
-            "IP"
-        );
+        require(poolAddress != address(0) && poolAddress == address(pool), "IP");
 
         address manager = address(
             new TwapStrategyManager(
@@ -147,27 +132,18 @@ contract DefiEdgeTwapStrategyFactory is ITwapStrategyFactory {
      * @param _pool Address of the pool
      * @param _twapPricePeriod Timespan in seconds
      */
-    function changeDefaultTwapPeriod(address _pool, uint256 _twapPricePeriod)
-        external
-        onlyGovernance
-    {
+    function changeDefaultTwapPeriod(address _pool, uint256 _twapPricePeriod) external onlyGovernance {
         twapPricePeriod[_pool] = _twapPricePeriod;
         emit TwapPricePeriodChanged(_pool, _twapPricePeriod);
     }
 
-    function changeDefaultAllowedDeviation(uint256 _allowedDeviation)
-        external
-        onlyGovernance
-    {
+    function changeDefaultAllowedDeviation(uint256 _allowedDeviation) external onlyGovernance {
         require(_allowedDeviation <= 1e17, "IA"); // should be less than 10%
         allowedDeviation = _allowedDeviation;
         emit ChangeDeviation(allowedDeviation);
     }
 
-    function changeAllowedSlippage(uint256 _allowedSlippage)
-        external
-        onlyGovernance
-    {
+    function changeAllowedSlippage(uint256 _allowedSlippage) external onlyGovernance {
         require(_allowedSlippage <= 1e17, "IA"); // should be less than 10%
         allowedSlippage = _allowedSlippage;
         emit ChangeSlippage(allowedSlippage);
@@ -187,10 +163,7 @@ contract DefiEdgeTwapStrategyFactory is ITwapStrategyFactory {
      * @notice Changes protocol performance fees
      * @param _feeRate New fee in 1e8 format
      */
-    function changeProtocolPerformanceFeeRate(uint256 _feeRate)
-        external
-        onlyGovernance
-    {
+    function changeProtocolPerformanceFeeRate(uint256 _feeRate) external onlyGovernance {
         require(_feeRate <= MAX_PROTOCOL_PERFORMANCE_FEES_RATE, "IA"); // should be less than 20%
         protocolPerformanceFeeRate = _feeRate;
         emit ChangeProtocolPerformanceFee(protocolPerformanceFeeRate);
@@ -233,10 +206,7 @@ contract DefiEdgeTwapStrategyFactory is ITwapStrategyFactory {
      * @notice Changes strategy creation fees
      * @param _fee New fee in 1e18 format
      */
-    function changeFeeForStrategyCreation(uint256 _fee)
-        external
-        onlyGovernance
-    {
+    function changeFeeForStrategyCreation(uint256 _fee) external onlyGovernance {
         strategyCreationFee = _fee;
         emit ChangeStrategyCreationFee(strategyCreationFee);
     }
@@ -272,12 +242,7 @@ contract DefiEdgeTwapStrategyFactory is ITwapStrategyFactory {
      * @param _base base token address
      * @param _quote quote token address
      */
-    function getHeartBeat(address _base, address _quote)
-        external
-        view
-        override
-        returns (uint256)
-    {
+    function getHeartBeat(address _base, address _quote) external view override returns (uint256) {
         if (_heartBeat[_base][_quote] == 0) {
             return 3600;
         } else {
